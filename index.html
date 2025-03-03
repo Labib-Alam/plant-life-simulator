@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Life Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Plant Life Simulator</h1>
+        <div class="instructions">
+            <p><strong>Planting:</strong> Click "Plant Seed" and then click on the dotted line to plant. Press ESC to cancel planting.</p>
+            <p><strong>Speed controls:</strong> 0 (slow), 1 (normal), 2 (2x), 3 (5x)</p>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="controls">
+            <div class="button-group">
+                <button id="plantSeed">Plant Seed</button>
+                <button id="debugButton">Debug Mode</button>
+                <button id="centerButton">Center on Ground</button>
+            </div>
+            <div class="time-display">
+                <span id="timeDisplay">Day 1, 06:00</span>
+                <div id="dayNightIndicator"></div>
+            </div>
+        </div>
+    </div>
+    <script src="js/constants.js"></script>
+    <script src="js/tile.js"></script>
+    <script src="js/plant.js"></script>
+    <script src="js/world.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        // Add debug functionality
+        document.getElementById('debugButton').addEventListener('click', function() {
+            // Toggle debug mode
+            window.debugMode = !window.debugMode;
+            this.style.backgroundColor = window.debugMode ? '#ff6347' : '#4CAF50';
+            this.textContent = window.debugMode ? 'Exit Debug' : 'Debug Mode';
+            
+            if (window.debugMode) {
+                // Show debug info
+                console.log("=== DEBUG INFO ===");
+                console.log("Grid size:", GRID_WIDTH, "x", GRID_HEIGHT);
+                console.log("Ground level:", GROUND_LEVEL);
+                console.log("Planting level:", GROUND_LEVEL - 1);
+                
+                // Count dirt tiles at planting level
+                let dirtTiles = 0;
+                let plantableTiles = 0;
+                
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    const tile = window.game?.world?.tiles[GROUND_LEVEL - 1][x];
+                    if (tile) {
+                        if (tile.type === TILE_TYPES.DIRT) {
+                            dirtTiles++;
+                            if (!tile.hasPlant) {
+                                plantableTiles++;
+                            }
+                        }
+                    }
+                }
+                
+                console.log("Dirt tiles at planting level:", dirtTiles);
+                console.log("Plantable tiles (dirt without plants):", plantableTiles);
+                
+                // Safely log camera values with NaN protection
+                const cameraX = window.game?.world?.cameraX;
+                const cameraY = window.game?.world?.cameraY;
+                const zoomVal = window.game?.world?.zoom;
+                
+                console.log("Camera position:", 
+                    Number.isFinite(cameraX) ? cameraX : 0, 
+                    Number.isFinite(cameraY) ? cameraY : 0
+                );
+                console.log("Camera zoom:", Number.isFinite(zoomVal) ? zoomVal : 1.0);
+                
+                // Add visual debug overlay
+                const canvas = document.getElementById('gameCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Add debug text
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText(`World Size: ${GRID_WIDTH} x ${GRID_HEIGHT}`, 10, 60);
+                
+                // Safely display camera values with NaN protection
+                const displayX = Number.isFinite(cameraX) ? Math.floor(cameraX) : 0;
+                const displayY = Number.isFinite(cameraY) ? Math.floor(cameraY) : 0;
+                const displayZoom = Number.isFinite(zoomVal) ? zoomVal.toFixed(1) : "1.0";
+                
+                ctx.fillText(`Camera: (${displayX}, ${displayY}) Zoom: ${displayZoom}x`, 10, 80);
+                
+                alert("Debug mode activated. Check the console for detailed information.");
+            }
+        });
+        
+        // Center on ground level button
+        document.getElementById('centerButton').addEventListener('click', function() {
+            if (window.game && window.game.world) {
+                window.game.world.cameraX = 0;
+                window.game.world.cameraY = Math.max(0, GROUND_LEVEL - 10);
+                window.game.world.zoom = 1;
+            }
+        });
+    </script>
+</body>
+</html> 
