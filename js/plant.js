@@ -76,6 +76,9 @@ class Plant {
         // Check environmental factors
         this.checkEnvironment(world);
         
+        // Update leaf orientations to ensure they point towards branches
+        this.updateLeafOrientations();
+        
         return this.health > 0; // Return true if plant is alive
     }
     
@@ -101,11 +104,7 @@ class Plant {
         
         console.log(`Growth check: Potential=${growthPotential.toFixed(2)}, Chance=${growthChance.toFixed(2)}`);
         
-        // Safety check for maximum size
-        if (this.height >= 20 || this.rootDepth >= 15) { // Increased max root depth from 10 to 15
-            console.log("Plant has reached maximum size");
-            return;
-        }
+        // Removed maximum size check to allow unlimited growth
         
         // Chance to grow based on potential - now almost guaranteed for testing
         if (Math.random() < growthChance) {
@@ -204,7 +203,7 @@ class Plant {
         // Determine what can grow based on plant stage
         if (this.stage === PLANT_STAGES.SEED) {
             // Initial root growth
-            if (Math.random() < 0.9) { // Increased from 0.8
+            if (Math.random() < 0.9) {
                 this.growRoot(0, 1, { world: world, size: 4 });
                 this.stage = PLANT_STAGES.GERMINATION;
                 console.log("Plant progressed to germination stage");
@@ -212,7 +211,7 @@ class Plant {
         } else if (this.stage === PLANT_STAGES.GERMINATION) {
             const growth = Math.random();
             
-            if (growth < 0.7) { // Increased from 0.6
+            if (growth < 0.8) { // Increased from 0.7 to grow stem faster
                 // Grow stem
                 const stemY = -this.parts.stem.length - 1;
                 this.growStem(0, stemY, { size: 4 });
@@ -224,8 +223,8 @@ class Plant {
                 }
             } else {
                 // Grow more roots during germination
-                const rootX = Math.round(Math.random() * 2 - 1); // -1 to 1
-                const rootY = Math.floor(Math.random() * 2) + 1; // 1 to 2
+                const rootX = Math.round(Math.random() * 2 - 1);
+                const rootY = Math.floor(Math.random() * 2) + 1;
                 this.growRoot(rootX, rootY, { world: world, size: 4 });
             }
         } else if (this.stage === PLANT_STAGES.SAPLING) {
@@ -233,27 +232,24 @@ class Plant {
             
             if (growth < 0.4) { // Increased stem growth chance
                 // Continue stem growth
-                if (this.parts.stem.length < 5) { // Allow more stem segments
-                    const stemY = -this.parts.stem.length - 1;
-                    const stemSize = 4.5 + (this.age * 0.01);
-                    this.growStem(0, stemY, { size: stemSize });
-                }
-            } else if (growth < 0.8) { // Increased branch growth chance
+                const stemY = -this.parts.stem.length - 1;
+                const stemSize = 4.5 + (this.age * 0.05); // Increased age multiplier
+                this.growStem(0, stemY, { size: stemSize });
+            } else { // Removed else-if to maximize branch growth chance
                 // Grow branches if we have enough stem
                 if (this.parts.stem.length >= 2) {
-                    const side = Math.random() < 0.5 ? -1 : 1;
-                    const stemY = -Math.floor(Math.random() * this.parts.stem.length);
-                    
-                    this.growBranch(side, stemY, {
-                        size: 3.5,
-                        color: '#3A5F0B'
+                    // Try to grow branches on both sides
+                    const sides = [1, -1];
+                    sides.forEach(side => {
+                        if (Math.random() < 0.7) { // 70% chance for each side
+                            const stemY = -Math.floor(Math.random() * this.parts.stem.length);
+                            this.growBranch(side, stemY, {
+                                size: 3.5,
+                                color: '#3A5F0B'
+                            });
+                        }
                     });
                 }
-            } else {
-                // Grow roots
-                const rootX = Math.round(Math.random() * 3 - 1.5);
-                const rootY = Math.floor(Math.random() * 2) + this.rootDepth;
-                this.growRoot(rootX, rootY, { world: world, advanced: true });
             }
             
             // Progress to juvenile stage with more relaxed conditions
@@ -264,21 +260,18 @@ class Plant {
         } else if (this.stage === PLANT_STAGES.JUVENILE) {
             const growth = Math.random();
             
-            if (growth < 0.3) { // Stem growth
-                if (this.parts.stem.length < 8) { // Allow more stem segments
-                    const stemY = -this.parts.stem.length - 1;
-                    const stemSize = 5 + (this.age * 0.015);
-                    this.growStem(0, stemY, { size: stemSize });
-                }
-            } else if (growth < 0.8) { // Increased branch/sub-branch chance
-                // Try to add a sub-branch to an existing branch
-                if (this.parts.branches.length > 0 && Math.random() < 0.6) {
+            if (growth < 0.3) { // Increased stem growth chance
+                const stemY = -this.parts.stem.length - 1;
+                const stemSize = 5 + (this.age * 0.08); // Increased age multiplier
+                this.growStem(0, stemY, { size: stemSize });
+            } else if (growth < 0.9) { // High chance for branches
+                if (this.parts.branches.length > 0 && Math.random() < 0.3) { // Reduced sub-branch chance to 30%
+                    // Add sub-branch to existing branch
                     const branchIndex = Math.floor(Math.random() * this.parts.branches.length);
                     const branch = this.parts.branches[branchIndex];
                     
                     if (branch) {
                         const side = Math.random() < 0.5 ? -1 : 1;
-                        // Random right angle rotation (90 or -90 degrees)
                         const angle = Math.PI/2 * (Math.random() < 0.5 ? 1 : -1);
                         
                         this.growSubBranch(side, branch.y, branch, {
@@ -287,13 +280,16 @@ class Plant {
                         });
                     }
                 } else {
-                    // Grow new branch
-                    const side = Math.random() < 0.5 ? -1 : 1;
-                    const stemY = -Math.floor(Math.random() * this.parts.stem.length);
-                    
-                    this.growBranch(side, stemY, {
-                        size: 4,
-                        color: '#3A5F0B'
+                    // Try to grow branches on both sides
+                    const sides = [1, -1];
+                    sides.forEach(side => {
+                        if (Math.random() < 0.6) { // 60% chance for each side
+                            const stemY = -Math.floor(Math.random() * this.parts.stem.length);
+                            this.growBranch(side, stemY, {
+                                size: 4,
+                                color: '#3A5F0B'
+                            });
+                        }
                     });
                 }
             } else {
@@ -302,20 +298,12 @@ class Plant {
                 const rootY = Math.floor(Math.random() * 3) + this.rootDepth;
                 this.growRoot(rootX, rootY, { world: world, advanced: true });
             }
-            
-            // Progress to mature stage with relaxed conditions
-            if (this.parts.stem.length >= 4 && this.parts.branches.length >= 4) {
-                this.stage = PLANT_STAGES.MATURE;
-                console.log("Plant progressed to mature stage");
-            }
         }
-        
-        // ... rest of the grow method ...
     }
     
     growStem(dx, dy, options = {}) {
         // Calculate new position
-        const newX = this.parts.stem.length > 0 ? 0 : 0; // Stems grow straight up
+        const newX = this.parts.stem.length > 0 ? 0 : 0;
         const newY = dy;
         
         // Verify if we can grow here
@@ -366,7 +354,7 @@ class Plant {
         
         // Generate branch connection points for stem - left and right sides
         if (this.stage >= PLANT_STAGES.GERMINATION) {
-            const pointCount = 1 + Math.floor(Math.random() * 2); // 1-2 connection points per stem segment
+            const pointCount = 2 + Math.floor(Math.random() * 2); // 2-3 connection points per stem segment
             
             for (let i = 0; i < pointCount; i++) {
                 // Position along the stem segment
@@ -592,6 +580,53 @@ class Plant {
         return neighbors;
     }
     
+    calculateLeafOrientation(leaf) {
+        if (!leaf || !leaf.branchRef) return null;
+        
+        // Get branch and leaf positions
+        const branch = leaf.branchRef;
+        
+        // For a branch with start and end positions
+        if (branch.startX !== undefined && branch.x !== undefined) {
+            // Calculate the branch direction vector
+            const branchVectorX = branch.x - branch.startX;
+            const branchVectorY = branch.y - branch.startY;
+            
+            // Calculate the angle perpendicular to the branch direction (pointing outward)
+            // We add PI/2 to make the leaf point outward from the branch
+            const branchAngle = Math.atan2(branchVectorY, branchVectorX);
+            
+            // Determine which side of the branch the leaf is on
+            const leafToBranchX = leaf.x - (branch.startX + branchVectorX * 0.5);
+            const leafToBranchY = leaf.y - (branch.startY + branchVectorY * 0.5);
+            
+            // Calculate the dot product of branchVector and leafToBranch to determine side
+            const dotProduct = branchVectorX * leafToBranchX + branchVectorY * leafToBranchY;
+            
+            // Choose the angle based on which side of the branch the leaf is on
+            return branchAngle + (dotProduct >= 0 ? Math.PI/2 : -Math.PI/2);
+        }
+        
+        // For connection points along a branch with t value
+        if (leaf.connectionPoint && leaf.connectionPoint.t !== undefined) {
+            const connPoint = leaf.connectionPoint;
+            
+            // For branches with startX/Y and x/y endpoints
+            if (branch.startX !== undefined && branch.x !== undefined) {
+                // Calculate position based on connection point's t value
+                const branchVectorX = branch.x - branch.startX;
+                const branchVectorY = branch.y - branch.startY;
+                
+                // Calculate the perpendicular direction (pointing outward from the branch)
+                const branchAngle = Math.atan2(branchVectorY, branchVectorX);
+                return branchAngle + Math.PI/2;
+            }
+        }
+        
+        // If we don't have enough information, return a default orientation
+        return Math.PI/4 * (branch.direction || 1);
+    }
+    
     growLeaf(dx, dy, options = {}) {
         // Determine if a leaf already exists near this position to avoid overlapping
         const nearbyLeaf = this.parts.leaves.find(existingLeaf => 
@@ -639,6 +674,12 @@ class Plant {
                     { startX: -5, startY: 0, endX: 5, endY: 0 }
                 ]
             });
+            
+            // Calculate the leaf angle to point towards the branch
+            const orientationAngle = this.calculateLeafOrientation(leaf);
+            if (orientationAngle !== null) {
+                leaf.angle = orientationAngle;
+            }
         }
         
         this.parts.leaves.push(leaf);
@@ -649,11 +690,20 @@ class Plant {
         return leaf;
     }
     
+    // Method to update orientation of all leaves
+    updateLeafOrientations() {
+        this.parts.leaves.forEach(leaf => {
+            if (leaf.branchRef) {
+                const newAngle = this.calculateLeafOrientation(leaf);
+                if (newAngle !== null) {
+                    leaf.angle = newAngle;
+                }
+            }
+        });
+    }
+    
     growBranch(dx, dy, options = {}) {
-        // Base branch size on plant stage with increased visibility
-        const branchSize = options.size || (3.5 + this.stage * 0.8);
-        
-        // Locate the stem segment at this y position
+        // Find the stem segment at this y position
         const stemSegment = this.parts.stem.find(segment => segment.y === dy);
         if (!stemSegment) {
             console.log("No stem segment found at y=", dy, "for branch attachment");
@@ -674,20 +724,23 @@ class Plant {
         
         stemSegment.branchConnectionPoints.forEach(cp => {
             if (cp.side === side && !cp.occupied) {
-                // Calculate a good angle based on nearby branches
-                let angle = side > 0 ? Math.PI/6 : -Math.PI/6; // Base angle (30 degrees)
-                
+                // Snap angle to right angle or half of the right angle
+                const possibleAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2, Math.PI / 4, -Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4];
+                let angle = possibleAngles[0]; // Default to horizontal
+
                 if (nearbyBranches.length > 0) {
                     // Adjust angle to avoid overlaps
                     const avgNearbyAngle = nearbyBranches.reduce((sum, b) => sum + (b.angle || 0), 0) / nearbyBranches.length;
-                    angle = avgNearbyAngle + (side * Math.PI/4); // Rotate 45 degrees from average
+                    angle = possibleAngles.reduce((closest, current) => 
+                        Math.abs(current - avgNearbyAngle) < Math.abs(closest - avgNearbyAngle) ? current : closest
+                    );
                 }
-                
+
                 // Check if this angle would cause overlap
                 const wouldOverlap = nearbyBranches.some(b => 
-                    Math.abs(b.angle - angle) < Math.PI/6
+                    Math.abs(b.angle - angle) < Math.PI / 6
                 );
-                
+
                 if (!wouldOverlap && (!bestConnectionPoint || cp.position > bestConnectionPoint.position)) {
                     bestConnectionPoint = cp;
                     bestAngle = angle;
@@ -736,12 +789,12 @@ class Plant {
         const branch = {
             stemRef: stemSegment,
             connectionPoint: connectionPoint,
-            startX: 0, // Start exactly at stem
+            startX: side * 0.2, // Reduced from 0.5 to make connection tighter
             startY: dy + connectionPoint.position - 0.5,
             x: branchX,
             y: branchY,
             type: PLANT_PARTS.BRANCH,
-            size: branchSize,
+            size: options.size || 4,
             subBranches: [],
             leafConnectionPoints: [],
             subBranchConnectionPoints: [],
@@ -765,8 +818,8 @@ class Plant {
             branch.color = this.stage >= PLANT_STAGES.ADVANCED ? '#8B4513' : '#3A5F0B';
         }
         
-        // Generate fewer leaf connection points along the branch
-        const leafPointCount = 3 + Math.floor(Math.random() * 2);
+        // Generate more leaf connection points along the branch
+        const leafPointCount = 4 + Math.floor(Math.random() * 3); // Increased from 3 + random * 2
         for (let i = 0; i < leafPointCount; i++) {
             const t = 0.2 + (i * (0.6 / (leafPointCount - 1)));
             const leafPoint = {
@@ -777,8 +830,8 @@ class Plant {
             branch.leafConnectionPoints.push(leafPoint);
         }
         
-        // Generate fewer, more spaced out sub-branch connection points
-        const subBranchPointCount = 2 + Math.floor(Math.random() * 2);
+        // Generate more sub-branch connection points
+        const subBranchPointCount = 3 + Math.floor(Math.random() * 2); // Increased from 2 + random * 2
         for (let i = 0; i < subBranchPointCount; i++) {
             const t = 0.3 + (i * (0.4 / subBranchPointCount));
             const subBranchPoint = {
@@ -798,8 +851,8 @@ class Plant {
         connectionPoint.occupied = true;
         connectionPoint.branchId = this.branchCount - 1;
         
-        // Grow a leaf at the end point
-        if (options.addLeaf !== false && this.leafCount < 40) {
+        // Grow a leaf at the end point with no limit check
+        if (options.addLeaf !== false) {
             setTimeout(() => {
                 if (!branch.endLeafPoint.occupied) {
                     // End point leaf (at branch tip)
@@ -1306,16 +1359,6 @@ class Plant {
         ctx.lineTo(endX, endY);
         ctx.stroke();
         
-        // Draw connection to stem
-        if (branch.stemRef && branch.connectionPoint) {
-            ctx.beginPath();
-            ctx.strokeStyle = branch.color || '#3A5F0B';
-            ctx.lineWidth = branch.size * 1.2;
-            ctx.arc(startX, startY, branch.size * 0.4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        }
-        
         // Draw connection points
         branch.leafConnectionPoints.forEach((point, index) => {
             const t = point.t;
@@ -1505,7 +1548,10 @@ class Plant {
             ctx.strokeStyle = '#3A5F0B'; // Dark green for stem
             ctx.lineWidth = 1.5;
             ctx.moveTo(0, 0);
-            ctx.lineTo(0, -leafSize * 0.4); // Stem points toward leaf
+            
+            // Draw stem in the opposite direction of the leaf orientation
+            // This ensures it points back toward the branch
+            ctx.lineTo(0, leafSize * 0.5); // Stem points back towards branch
             ctx.stroke();
         }
         
@@ -1558,7 +1604,10 @@ class Plant {
             ctx.strokeStyle = '#3A5F0B'; // Dark green for stem
             ctx.lineWidth = 1.5;
             ctx.moveTo(0, 0);
-            ctx.lineTo(0, -leafSize * 0.5); // Stem points toward leaf
+            
+            // Draw stem in the opposite direction of the leaf orientation
+            // This ensures it points back toward the branch
+            ctx.lineTo(0, leafSize * 0.6); // Stem points back towards branch
             ctx.stroke();
         }
         
@@ -1630,7 +1679,9 @@ class Plant {
             ctx.strokeStyle = '#3A5F0B'; // Dark green for stem
             ctx.lineWidth = 1.5;
             ctx.moveTo(0, 0);
-            ctx.lineTo(-leafletCount/2 * spacing * 0.5, 0); // Stem extends back
+            
+            // Draw stem in the opposite direction of the leaf petiole
+            ctx.lineTo(leafletCount/2 * spacing * 0.5, 0); // Stem extends towards the branch
             ctx.stroke();
         }
         
@@ -1709,8 +1760,7 @@ class Plant {
     findRootParent(currentRoot, currentIndex) {
         if (currentIndex === 0) return -1; // Base root has no parent
         
-        // Calculate the Manhattan distance (sum of x and y distances) to all previous roots
-        // This helps find the closest existing root that could be the parent
+        // Calculate the Manhattan distance to all previous roots
         const distances = [];
         for (let i = 0; i < currentIndex; i++) {
             const prev = this.parts.roots[i];
