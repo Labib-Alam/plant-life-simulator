@@ -603,39 +603,86 @@ class Plant {
             const branchVectorX = branch.x - branch.startX;
             const branchVectorY = branch.y - branch.startY;
             
-            // Calculate the angle perpendicular to the branch direction (pointing outward)
-            // We add PI/2 to make the leaf point outward from the branch
+            // Calculate the base angle of the branch
             const branchAngle = Math.atan2(branchVectorY, branchVectorX);
             
-            // Determine which side of the branch the leaf is on
-            const leafToBranchX = leaf.x - (branch.startX + branchVectorX * 0.5);
-            const leafToBranchY = leaf.y - (branch.startY + branchVectorY * 0.5);
+            // Make leaf perpendicular by adding 90 degrees (PI/2)
+            let leafAngle = branchAngle + Math.PI/2;
             
-            // Calculate the dot product of branchVector and leafToBranch to determine side
-            const dotProduct = branchVectorX * leafToBranchX + branchVectorY * leafToBranchY;
+            // Add small random variation (up to ±30 degrees) to avoid overlap
+            const variation = (Math.random() - 0.5) * Math.PI/3; // ±30 degrees
+            leafAngle += variation;
             
-            // Choose the angle based on which side of the branch the leaf is on
-            return branchAngle + (dotProduct >= 0 ? Math.PI/2 : -Math.PI/2);
+            // Check for overlap with existing leaves
+            const checkOverlap = (testAngle) => {
+                const testX = leaf.x + Math.cos(testAngle) * TILE_SIZE * 0.4;
+                const testY = leaf.y + Math.sin(testAngle) * TILE_SIZE * 0.4;
+                
+                return this.parts.leaves.some(otherLeaf => {
+                    if (otherLeaf === leaf) return false;
+                    
+                    const dx = otherLeaf.x - leaf.x;
+                    const dy = otherLeaf.y - leaf.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    return distance < TILE_SIZE * 0.6; // Overlap threshold
+                });
+            };
+            
+            // If there's overlap, try the opposite direction
+            if (checkOverlap(leafAngle)) {
+                leafAngle = branchAngle - Math.PI/2 + variation;
+                
+                // If still overlapping, signal that we shouldn't grow this leaf
+                if (checkOverlap(leafAngle)) {
+                    return null;
+                }
+            }
+            
+            return leafAngle;
         }
         
         // For connection points along a branch with t value
         if (leaf.connectionPoint && leaf.connectionPoint.t !== undefined) {
             const connPoint = leaf.connectionPoint;
             
-            // For branches with startX/Y and x/y endpoints
             if (branch.startX !== undefined && branch.x !== undefined) {
-                // Calculate position based on connection point's t value
+                // Calculate the branch direction at this point
                 const branchVectorX = branch.x - branch.startX;
                 const branchVectorY = branch.y - branch.startY;
-                
-                // Calculate the perpendicular direction (pointing outward from the branch)
                 const branchAngle = Math.atan2(branchVectorY, branchVectorX);
-                return branchAngle + Math.PI/2;
+                
+                // Make perpendicular with variation
+                let leafAngle = branchAngle + Math.PI/2;
+                const variation = (Math.random() - 0.5) * Math.PI/3;
+                leafAngle += variation;
+                
+                // Check for overlap
+                const checkOverlap = (testAngle) => {
+                    const testX = leaf.x + Math.cos(testAngle) * TILE_SIZE * 0.4;
+                    const testY = leaf.y + Math.sin(testAngle) * TILE_SIZE * 0.4;
+                    
+                    return this.parts.leaves.some(otherLeaf => {
+                        if (otherLeaf === leaf) return false;
+                        const dx = otherLeaf.x - leaf.x;
+                        const dy = otherLeaf.y - leaf.y;
+                        return Math.sqrt(dx * dx + dy * dy) < TILE_SIZE * 0.6;
+                    });
+                };
+                
+                // Try opposite direction if overlapping
+                if (checkOverlap(leafAngle)) {
+                    leafAngle = branchAngle - Math.PI/2 + variation;
+                    if (checkOverlap(leafAngle)) {
+                        return null;
+                    }
+                }
+                
+                return leafAngle;
             }
         }
         
-        // If we don't have enough information, return a default orientation
-        return Math.PI/4 * (branch.direction || 1);
+        return null; // Don't grow leaf if we can't determine proper orientation
     }
     
     growLeaf(dx, dy, options = {}) {
@@ -1554,43 +1601,43 @@ class Plant {
         // Save context for rotation
         ctx.save();
         
-        const leafSize = TILE_SIZE * 0.4; // Reduced from 0.6
+        const leafSize = TILE_SIZE * 0.4;
         const x = (this.x + leaf.x) * TILE_SIZE + TILE_SIZE/2;
         const y = (this.y + leaf.y) * TILE_SIZE + TILE_SIZE/2;
         
-        // Translate to leaf position and rotate
+        // Translate to leaf position and rotate around the connection point
         ctx.translate(x, y);
         ctx.rotate(leaf.angle || 0);
         
         // Draw stem connecting to branch if there's a branch reference
         if (leaf.branchRef) {
             ctx.beginPath();
-            ctx.strokeStyle = '#3A5F0B'; // Dark green for stem
+            ctx.strokeStyle = '#3A5F0B';
             ctx.lineWidth = 1.5;
             ctx.moveTo(0, 0);
-            
-            // Draw stem in the opposite direction of the leaf orientation
-            // This ensures it points back toward the branch
-            ctx.lineTo(0, leafSize * 0.5); // Stem points back towards branch
+            ctx.lineTo(0, -leafSize * 0.2); // Shorter stem
             ctx.stroke();
         }
         
-        // Draw teardrop shape at origin (0,0) after rotation
+        // Draw teardrop shape with pivot at the pointy part
         ctx.beginPath();
         ctx.fillStyle = '#228B22';
         
-        ctx.moveTo(0, -leafSize);
+        // Start at the connection point (0,0)
+        ctx.moveTo(0, 0);
+        
+        // Draw the leaf shape extending upward from the connection point
         ctx.quadraticCurveTo(
             leafSize * 0.7,
+            -leafSize * 0.7,
             0,
-            0,
-            leafSize * 0.7
+            -leafSize * 1.4
         );
         ctx.quadraticCurveTo(
             -leafSize * 0.7,
+            -leafSize * 0.7,
             0,
-            0,
-            -leafSize
+            0
         );
         ctx.fill();
         
@@ -1598,60 +1645,57 @@ class Plant {
         ctx.beginPath();
         ctx.strokeStyle = '#1B691B';
         ctx.lineWidth = 1;
-        ctx.moveTo(0, -leafSize);
-        ctx.lineTo(0, leafSize * 0.7);
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -leafSize * 1.4);
         ctx.stroke();
         
-        // Restore context to undo rotation and translation
         ctx.restore();
     }
     
     drawDetailedLeaf(ctx, leaf) {
-        // Save context for rotation
         ctx.save();
         
-        const leafSize = TILE_SIZE * 0.5; // Reduced from 0.75
+        const leafSize = TILE_SIZE * 0.5;
         const x = (this.x + leaf.x) * TILE_SIZE + TILE_SIZE/2;
         const y = (this.y + leaf.y) * TILE_SIZE + TILE_SIZE/2;
         
-        // Translate to leaf position and rotate
+        // Translate to leaf position and rotate around the connection point
         ctx.translate(x, y);
         ctx.rotate(leaf.angle || 0);
         
         // Draw stem connecting to branch if there's a branch reference
         if (leaf.branchRef) {
             ctx.beginPath();
-            ctx.strokeStyle = '#3A5F0B'; // Dark green for stem
+            ctx.strokeStyle = '#3A5F0B';
             ctx.lineWidth = 1.5;
             ctx.moveTo(0, 0);
-            
-            // Draw stem in the opposite direction of the leaf orientation
-            // This ensures it points back toward the branch
-            ctx.lineTo(0, leafSize * 0.6); // Stem points back towards branch
+            ctx.lineTo(0, -leafSize * 0.2); // Shorter stem
             ctx.stroke();
         }
         
-        // Main leaf shape at origin after rotation
+        // Draw leaf shape with pivot at the pointy part
         ctx.beginPath();
         ctx.fillStyle = '#228B22';
         
-        // Main leaf shape
-        ctx.moveTo(0, -leafSize);
+        // Start at connection point
+        ctx.moveTo(0, 0);
+        
+        // Draw the leaf shape extending upward
         ctx.bezierCurveTo(
             leafSize * 0.7,
-            -leafSize/2,
+            -leafSize * 0.7,
             leafSize * 0.7,
-            leafSize/2,
+            -leafSize * 1.2,
             0,
-            leafSize * 0.7
+            -leafSize * 1.4
         );
         ctx.bezierCurveTo(
             -leafSize * 0.7,
-            leafSize/2,
+            -leafSize * 1.2,
             -leafSize * 0.7,
-            -leafSize/2,
+            -leafSize * 0.7,
             0,
-            -leafSize
+            0
         );
         ctx.fill();
         
@@ -1661,20 +1705,21 @@ class Plant {
         ctx.lineWidth = 1;
         
         // Main vein
-        ctx.moveTo(0, -leafSize);
-        ctx.lineTo(0, leafSize * 0.7);
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -leafSize * 1.4);
         
         // Side veins
-        for (let i = -2; i <= 2; i++) {
-            const veinY = i * leafSize/4;
+        for (let i = 1; i <= 3; i++) {
+            const veinY = -leafSize * 0.35 * i;
+            const veinLength = leafSize * 0.4 * (1 - i * 0.2);
+            
             ctx.moveTo(0, veinY);
-            ctx.lineTo(leafSize/2 * Math.sign(i), veinY);
+            ctx.lineTo(veinLength, veinY);
             ctx.moveTo(0, veinY);
-            ctx.lineTo(-leafSize/2 * Math.sign(i), veinY);
+            ctx.lineTo(-veinLength, veinY);
         }
         ctx.stroke();
         
-        // Restore context to undo rotation and translation
         ctx.restore();
     }
     
