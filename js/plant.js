@@ -200,9 +200,7 @@ class Plant {
     }
     
     grow(world) {
-        // Determine what can grow based on plant stage
         if (this.stage === PLANT_STAGES.SEED) {
-            // Initial root growth
             if (Math.random() < 0.9) {
                 this.growRoot(0, 1, { world: world, size: 4 });
                 this.stage = PLANT_STAGES.GERMINATION;
@@ -211,18 +209,15 @@ class Plant {
         } else if (this.stage === PLANT_STAGES.GERMINATION) {
             const growth = Math.random();
             
-            if (growth < 0.8) { // Increased from 0.7 to grow stem faster
-                // Grow stem
+            if (growth < 0.4) { // Reduced from 0.6 to further slow initial stem growth
                 const stemY = -this.parts.stem.length - 1;
                 this.growStem(0, stemY, { size: 4 });
                 
-                // Progress to sapling stage with just a few stem segments
                 if (this.parts.stem.length >= 2) {
                     this.stage = PLANT_STAGES.SAPLING;
                     console.log("Plant progressed to sapling stage");
                 }
             } else {
-                // Grow more roots during germination
                 const rootX = Math.round(Math.random() * 2 - 1);
                 const rootY = Math.floor(Math.random() * 2) + 1;
                 this.growRoot(rootX, rootY, { world: world, size: 4 });
@@ -230,22 +225,22 @@ class Plant {
         } else if (this.stage === PLANT_STAGES.SAPLING) {
             const growth = Math.random();
             
-            if (growth < 0.4) { // Increased stem growth chance
-                // Continue stem growth
+            if (growth < 0.1) { // Reduced from 0.2 to minimize stem growth
                 const stemY = -this.parts.stem.length - 1;
-                const stemSize = 4.5 + (this.age * 0.05); // Increased age multiplier
+                const stemSize = 4.5 + (this.age * 0.03); // Reduced age multiplier
                 this.growStem(0, stemY, { size: stemSize });
-            } else { // Removed else-if to maximize branch growth chance
+            } else { 
                 // Grow branches if we have enough stem
                 if (this.parts.stem.length >= 2) {
                     // Try to grow branches on both sides
                     const sides = [1, -1];
                     sides.forEach(side => {
-                        if (Math.random() < 0.7) { // 70% chance for each side
+                        if (Math.random() < 0.8) {
                             const stemY = -Math.floor(Math.random() * this.parts.stem.length);
                             this.growBranch(side, stemY, {
                                 size: 3.5,
-                                color: '#3A5F0B'
+                                color: '#3A5F0B',
+                                extendLength: true // New flag to indicate we want longer branches
                             });
                         }
                     });
@@ -260,13 +255,12 @@ class Plant {
         } else if (this.stage === PLANT_STAGES.JUVENILE) {
             const growth = Math.random();
             
-            if (growth < 0.3) { // Increased stem growth chance
+            if (growth < 0.05) { // Reduced from 0.15 to further minimize stem growth
                 const stemY = -this.parts.stem.length - 1;
-                const stemSize = 5 + (this.age * 0.08); // Increased age multiplier
+                const stemSize = 5 + (this.age * 0.04); // Reduced age multiplier
                 this.growStem(0, stemY, { size: stemSize });
-            } else if (growth < 0.9) { // High chance for branches
-                if (this.parts.branches.length > 0 && Math.random() < 0.3) { // Reduced sub-branch chance to 30%
-                    // Add sub-branch to existing branch
+            } else if (growth < 0.9) {
+                if (this.parts.branches.length > 0 && Math.random() < 0.6) {
                     const branchIndex = Math.floor(Math.random() * this.parts.branches.length);
                     const branch = this.parts.branches[branchIndex];
                     
@@ -274,29 +268,46 @@ class Plant {
                         const side = Math.random() < 0.5 ? -1 : 1;
                         const angle = Math.PI/2 * (Math.random() < 0.5 ? 1 : -1);
                         
-                        this.growSubBranch(side, branch.y, branch, {
-                            angle: angle,
-                            size: branch.size * 0.85
-                        });
+                        // Try to connect to nearby branches
+                        const nearbyBranches = this.parts.branches.filter(b => 
+                            b !== branch && 
+                            Math.abs(b.y - branch.y) < 3 &&
+                            Math.abs(b.x - branch.x) < 3
+                        );
+                        
+                        if (nearbyBranches.length > 0 && Math.random() < 0.7) {
+                            const targetBranch = nearbyBranches[Math.floor(Math.random() * nearbyBranches.length)];
+                            const dx = targetBranch.x - branch.x;
+                            const dy = targetBranch.y - branch.y;
+                            const connectionAngle = Math.atan2(dy, dx);
+                            
+                            this.growSubBranch(side, branch.y, branch, {
+                                angle: connectionAngle,
+                                size: branch.size * 0.85,
+                                targetBranch: targetBranch,
+                                extendLength: true // New flag for longer branches
+                            });
+                        } else {
+                            this.growSubBranch(side, branch.y, branch, {
+                                angle: angle,
+                                size: branch.size * 0.85,
+                                extendLength: true // New flag for longer branches
+                            });
+                        }
                     }
                 } else {
-                    // Try to grow branches on both sides
                     const sides = [1, -1];
                     sides.forEach(side => {
-                        if (Math.random() < 0.6) { // 60% chance for each side
+                        if (Math.random() < 0.7) {
                             const stemY = -Math.floor(Math.random() * this.parts.stem.length);
                             this.growBranch(side, stemY, {
                                 size: 4,
-                                color: '#3A5F0B'
+                                color: '#3A5F0B',
+                                extendLength: true // New flag for longer branches
                             });
                         }
                     });
                 }
-            } else {
-                // Grow roots
-                const rootX = Math.round(Math.random() * 4 - 2);
-                const rootY = Math.floor(Math.random() * 3) + this.rootDepth;
-                this.growRoot(rootX, rootY, { world: world, advanced: true });
             }
         }
     }
@@ -781,7 +792,9 @@ class Plant {
         }
         
         // Calculate branch position based on connection point and angle
-        const branchLength = 1.5 + Math.random() * 0.5;
+        const baseLength = options.extendLength ? 2.5 : 1.5; // Increased from 1.5 to 2.5
+        const randomAddition = options.extendLength ? Math.random() * 1.0 : Math.random() * 0.5; // More variation
+        const branchLength = baseLength + randomAddition;
         const branchX = side * Math.cos(bestAngle) * branchLength;
         const branchY = dy + Math.sin(bestAngle) * branchLength;
         
@@ -912,6 +925,13 @@ class Plant {
                     }
                 }
             }, 50);
+        }
+        
+        // If this is an extended branch, higher chance to extend it further
+        if (options.extendLength && Math.random() < 0.4) {
+            const extensionLength = 0.8 + Math.random() * 0.7; // Longer extensions
+            branch.x += side * Math.cos(bestAngle) * extensionLength;
+            branch.y += Math.sin(bestAngle) * extensionLength;
         }
         
         return branch;
