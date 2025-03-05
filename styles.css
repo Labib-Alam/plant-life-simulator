@@ -7,20 +7,19 @@
 body {
     font-family: Arial, sans-serif;
     background-color: #f0f0f0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100vh;
 }
 
 .container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
     background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    max-width: 1200px;
-    width: 100%;
 }
 
 h1 {
@@ -59,7 +58,7 @@ h1 {
 canvas {
     display: block;
     width: 100%;
-    height: 600px;
+    flex: 1;
     background-color: #87CEEB; /* Sky blue */
     cursor: default;
 }
@@ -156,6 +155,33 @@ button:hover {
     max-width: 250px;
 }
 
+.growth-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
+.growth-controls label {
+    color: #333;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.growth-controls input[type="range"] {
+    width: 120px;
+    cursor: pointer;
+}
+
+.growth-controls span {
+    min-width: 30px;
+    text-align: center;
+    font-weight: bold;
+    color: #333;
+}
+
 /* Media queries for responsive design */
 @media (max-width: 768px) {
     .controls {
@@ -163,13 +189,13 @@ button:hover {
         gap: 10px;
     }
     
-    .button-group {
+    .button-group, .growth-controls, .time-display {
         width: 100%;
         justify-content: center;
     }
     
-    .time-display {
-        width: 100%;
+    .growth-controls {
         justify-content: center;
+        flex-wrap: wrap;
     }
 } 

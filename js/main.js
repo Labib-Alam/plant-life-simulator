@@ -168,7 +168,10 @@ class Game {
     resizeCanvas() {
         const container = this.canvas.parentElement;
         this.canvas.width = container.clientWidth;
-        this.canvas.height = 600; // Fixed height
+        this.canvas.height = container.clientHeight - document.querySelector('h1').offsetHeight 
+            - document.querySelector('.instructions').offsetHeight 
+            - document.querySelector('.controls').offsetHeight;
+        
         console.log("Canvas resized to:", this.canvas.width, "x", this.canvas.height);
         
         // Update camera view dimensions
@@ -201,6 +204,27 @@ class Game {
             console.log("Plant seed button event listener set up");
         } else {
             console.error("Plant seed button not found!");
+        }
+        
+        // Branch growth rate slider
+        const branchGrowthSlider = document.getElementById('branchGrowthRate');
+        const branchGrowthValue = document.getElementById('branchGrowthValue');
+        if (branchGrowthSlider && branchGrowthValue) {
+            // Initialize the growth rate
+            this.branchGrowthRate = parseFloat(branchGrowthSlider.value);
+            
+            branchGrowthSlider.addEventListener('input', (event) => {
+                this.branchGrowthRate = parseFloat(event.target.value);
+                branchGrowthValue.textContent = this.branchGrowthRate.toFixed(1);
+                
+                // Update the growth rate in the world if it exists
+                if (this.world) {
+                    this.world.branchGrowthRate = this.branchGrowthRate;
+                }
+            });
+            console.log("Branch growth rate slider event listener set up");
+        } else {
+            console.error("Branch growth rate slider or value display not found!");
         }
         
         // Canvas click for planting

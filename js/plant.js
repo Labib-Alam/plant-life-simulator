@@ -8,9 +8,9 @@ class Plant {
         this.height = 1;
         this.rootDepth = 1;
         this.lastGrowthCheck = 0;
-        this.growthRate = 0.4; // Increased growth rate from 0.2 to 0.4
-        this.waterAbsorption = 0.5; // How much water the plant absorbs
-        this.nutrientAbsorption = 0.3; // How much nutrients the plant absorbs
+        this.growthRate = 0.46; // Increased from 0.4 by 15%
+        this.waterAbsorption = 0.575; // Increased from 0.5 by 15%
+        this.nutrientAbsorption = 0.345; // Increased from 0.3 by 15%
         this.lastUpdateTime = 0; // Track last update time
         this.branchCount = 0; // Track number of branches
         this.leafCount = 0; // Track number of leaves
@@ -96,10 +96,10 @@ class Plant {
         // Increase chance of growth for new plants
         let growthChance = growthPotential;
         if (this.stage === PLANT_STAGES.SEED || this.stage === PLANT_STAGES.GERMINATION) {
-            growthChance = Math.max(0.8, growthChance); // Increased from 0.7 to 0.8 for early stages
+            growthChance = Math.max(0.92, growthChance); // Increased from 0.8 by 15%
         } else {
             // Ensure other stages also have reasonable growth chance
-            growthChance = Math.max(0.5, growthChance); // Increased from 0.4 to 0.5
+            growthChance = Math.max(0.575, growthChance); // Increased from 0.5 by 15%
         }
         
         console.log(`Growth check: Potential=${growthPotential.toFixed(2)}, Chance=${growthChance.toFixed(2)}`);
@@ -201,8 +201,8 @@ class Plant {
     
     grow(world) {
         if (this.stage === PLANT_STAGES.SEED) {
-            if (Math.random() < 0.95) { // Ensure high probability for root growth
-                this.growRoot(0, 1, { world: world, size: 4 });
+            if (Math.random() < 0.9775) { // Increased from 0.95 by 15%
+                this.growRoot(0, 1, { world: world, size: 4.6 }); // Increased size from 4 by 15%
                 this.stage = PLANT_STAGES.GERMINATION;
                 console.log("Plant progressed to germination stage");
             }
@@ -527,7 +527,7 @@ class Plant {
         console.log("Grew root at", dx, dy, "with color", rootColor);
         
         // Chance to grow another root in a different direction
-        if (neighborScores.length > 0 && Math.random() < 0.7) { // Increased probability
+        if (options.advanced && neighborScores.length > 0 && Math.random() < 0.69) { // Increased from 0.6 by 15%
             // Grow another root using one of the top 3 scored positions
             const nextIndex = Math.min(1, neighborScores.length - 1);
             const nextRoot = neighborScores[nextIndex];
@@ -536,7 +536,7 @@ class Plant {
                 setTimeout(() => {
                     this.growRoot(nextRoot.x, nextRoot.y, { 
                         world: world, 
-                        advanced: Math.random() < 0.3,
+                        advanced: Math.random() < 0.345, // Increased from 0.3 by 15%
                         size: rootSize - 1
                     });
                 }, 0);
@@ -834,8 +834,8 @@ class Plant {
         }
         
         // Calculate branch position based on connection point and angle
-        const baseLength = options.extendLength ? 2.5 : 1.5; // Increased from 1.5 to 2.5
-        const randomAddition = options.extendLength ? Math.random() * 1.0 : Math.random() * 0.5; // More variation
+        const baseLength = options.extendLength ? 2.875 : 1.725; // Increased from 2.5 and 1.5 by 15%
+        const randomAddition = options.extendLength ? Math.random() * 1.15 : Math.random() * 0.575; // Increased from 1.0 and 0.5 by 15%
         const branchLength = baseLength + randomAddition;
         const branchX = side * Math.cos(bestAngle) * branchLength;
         const branchY = dy + Math.sin(bestAngle) * branchLength;
@@ -969,9 +969,10 @@ class Plant {
             }, 50);
         }
         
-        // If this is an extended branch, higher chance to extend it further
-        if (options.extendLength && Math.random() < 0.4) {
-            const extensionLength = 0.8 + Math.random() * 0.7; // Longer extensions
+        // If this is an extended branch, higher chance to extend it further based on growth rate
+        const growthRate = this.world?.branchGrowthRate || 0.46; // Increased from 0.4 by 15%
+        if (options.extendLength && Math.random() < growthRate) {
+            const extensionLength = 0.92 + Math.random() * 0.805; // Increased from 0.8 and 0.7 by 15%
             branch.x += side * Math.cos(bestAngle) * extensionLength;
             branch.y += Math.sin(bestAngle) * extensionLength;
         }
@@ -1083,15 +1084,15 @@ class Plant {
         connectionPoint.branchId = parentBranch.subBranches.length - 1;
         
         // Higher chance to grow a leaf at the end point
-        if (Math.random() < 0.8) {
+        if (Math.random() < 0.92) { // Increased from 0.8 by 15%
             setTimeout(() => {
                 if (!subBranch.endLeafPoint.occupied) {
                     const leafType = this.stage >= PLANT_STAGES.JUVENILE ? 'detailed' : 'simple';
                     
                     const leaf = this.growLeaf(subBranch.x, subBranch.y, {
                         leafType: leafType,
-                        size: 1.2,
-                        angle: subBranch.angle + (Math.random() * 0.4 - 0.2),
+                        size: 1.38, // Increased from 1.2 by 15%
+                        angle: subBranch.angle + (Math.random() * 0.46 - 0.23), // Increased from 0.4 and 0.2 by 15%
                         branch: subBranch,
                         connectionPoint: subBranch.endLeafPoint
                     });
