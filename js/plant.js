@@ -1015,13 +1015,28 @@ class Plant {
             (parentBranch.y - parentBranch.startY) * connectionPoint.t;
         
         // Sub-branch size as a percentage of parent branch
-        const subBranchSize = parentBranch.size * 0.75; // Reduced from 0.85
+        const subBranchSize = parentBranch.size * 0.75;
         
         // Calculate sub-branch length - shorter length
-        const subBranchLength = 0.8 + Math.random() * 0.7; // Reduced from 1.5 + random * 1.5
+        const subBranchLength = 0.8 + Math.random() * 0.7;
         
-        // Apply right-angle rotation if specified in options
-        const angle = options.angle || (Math.random() < 0.5 ? Math.PI/2 : -Math.PI/2);
+        // Find nearby sub-branches to determine angle
+        const nearbySubBranches = parentBranch.subBranches.filter(sb => 
+            Math.abs(sb.startY - positionY) < 1 && // Check if they're close vertically
+            Math.abs(sb.startX - positionX) < 1 // Check if they're close horizontally
+        );
+        
+        // Determine angle based on nearby sub-branches
+        let angle;
+        if (nearbySubBranches.length > 0) {
+            // Get the most recent nearby sub-branch
+            const lastNearbyBranch = nearbySubBranches[nearbySubBranches.length - 1];
+            // Make this branch grow in the opposite direction
+            angle = lastNearbyBranch.angle + Math.PI; // Add 180 degrees to grow opposite
+        } else {
+            // If no nearby branches, use the angle from options or default to up/down
+            angle = options.angle || (Math.random() < 0.5 ? Math.PI/2 : -Math.PI/2);
+        }
         
         // Calculate end position based on angle
         const subBranchX = positionX + Math.cos(angle) * subBranchLength;
